@@ -21,7 +21,7 @@ public class Main {
 
     public static void main(String[] args) {
         System.out.println("\n*********************************************************");
-        System.out.println("   FINANCIAL INVESTMENT ENGINE - JAVA OOPS DEMONSTRATION ");
+        System.out.println("  STOCK RECOMMENDATION SYSTEM - JAVA OOPS DEMONSTRATION  ");
         System.out.println("*********************************************************\n");
 
         // 1. ENCAPSULATION: Creating User Financial Profile
@@ -47,23 +47,28 @@ public class Main {
 
         // Polymorphic instantiation (Asset references holding child class objects)
         stockDatabase.add(new EquityStock(
-                "NVDA", "NVIDIA Corporation", 128.50, 3.88, "Moderate",
-                155.00, 48.2, 94, "Strong Buy"
+                "NVDA", "NVIDIA Corporation", 138.25, 3.64, "Moderate",
+                165.00, 52.4, 95, "Strong Buy"
         ));
 
         stockDatabase.add(new DividendStock(
-                "AAPL", "Apple Inc.", 215.00, 1.25, "Low",
-                240.00, 31.5, 88, "Buy", 0.55
+                "AAPL", "Apple Inc.", 231.40, 0.94, "Low",
+                255.00, 34.2, 88, "Buy", 0.44
         ));
 
         stockDatabase.add(new DividendStock(
-                "MSFT", "Microsoft Corporation", 448.90, -0.45, "Low",
-                500.00, 36.2, 91, "Buy", 0.70
+                "MSFT", "Microsoft Corporation", 428.15, 0.81, "Low",
+                500.00, 35.8, 92, "Strong Buy", 0.75
         ));
 
         stockDatabase.add(new EquityStock(
-                "TSLA", "Tesla Inc.", 250.00, -2.10, "High",
-                300.00, 65.0, 75, "Hold"
+                "TSLA", "Tesla Inc.", 219.80, -1.92, "High",
+                220.00, 65.4, 65, "Hold"
+        ));
+
+        stockDatabase.add(new DividendStock(
+                "JPM", "JPMorgan Chase & Co.", 221.50, 0.82, "Low",
+                245.00, 12.8, 86, "Buy", 2.15
         ));
 
         // 3. POLYMORPHISM & METHOD OVERRIDING

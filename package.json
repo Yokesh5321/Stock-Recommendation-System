@@ -1,5 +1,5 @@
 {
-  "name": "oops-project",
+  "name": "stock-recommendation-system",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.3",
     "clsx": "^2.1.1",
     "lucide-react": "^1.28.0",
     "react": "^19.2.8",
@@ -26,5 +27,8 @@
     "postcss": "^8.5.25",
     "tailwindcss": "^3.4.19",
     "vite": "^8.2.0"
+  },
+  "overrides": {
+    "braces": "^3.0.3"
   }
 }

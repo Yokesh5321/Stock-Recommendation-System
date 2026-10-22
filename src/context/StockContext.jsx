@@ -1,18 +1,96 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { STOCK_DATABASE, MARKET_INDICES, AI_NEWS_FEED } from '../data/mockStocks';
+import { 
+  isSupabaseConfigured, 
+  getStocksFromDb, 
+  getIndicesFromDb, 
+  getNewsFromDb, 
+  saveFinancialProfileToDb, 
+  recordTradeToDb,
+  registerUserAccountInDb,
+  getUserAccountFromDb
+} from '../lib/supabaseClient';
 
 const StockContext = createContext();
 
 export const StockProvider = ({ children }) => {
   const [stocks, setStocks] = useState(STOCK_DATABASE);
   const [indices, setIndices] = useState(MARKET_INDICES);
-  const [newsFeed] = useState(AI_NEWS_FEED);
-  const [selectedStock, setSelectedStock] = useState(STOCK_DATABASE[0]);
-  const [activeTab, setActiveTab] = useState('dashboard'); // dashboard, questionnaire, portfolio-basket, recommendations, screener, portfolio, news, wealth-profile
+  const [newsFeed, setNewsFeed] = useState(AI_NEWS_FEED);
+  const [selectedStock, setSelectedStock] = useState(null);
+  const [activeTab, setActiveTab] = useState('dashboard'); // dashboard, questionnaire, wealth-profile, portfolio-basket, recommendations, screener, portfolio, news, login
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSupabaseLive, setIsSupabaseLive] = useState(isSupabaseConfigured());
+
+  // Helper to fetch registered accounts from persistent storage
+  const getRegisteredAccounts = () => {
+    try {
+      const saved = localStorage.getItem('registered_demat_accounts');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [
+      {
+        email: 'yokesh.kumar@investor.com',
+        fullName: 'Yokesh Kumar',
+        dematAccountNo: 'DEMAT-88492049',
+        brokerName: 'Zerodha (CDSL)',
+        password: 'DemoPass@2026'
+      }
+    ];
+  };
+
+  // User Demat Account & Auth State (session-based: asks to sign in whenever app is opened fresh)
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const activeSession = sessionStorage.getItem('demat_active_session');
+      if (activeSession) {
+        const parsed = JSON.parse(activeSession);
+        if (parsed?.isAuthenticated) return parsed;
+      }
+    } catch (e) {}
+    return {
+      email: '',
+      fullName: 'Guest Investor',
+      dematAccountNo: 'Unlinked',
+      brokerName: 'None',
+      isAuthenticated: false
+    };
+  });
+
+  // Guest preview mode if user clicks "Explore as Guest"
+  const [isGuestMode, setIsGuestMode] = useState(false);
   
   // Watchlist state
-  const [watchlist, setWatchlist] = useState(['NVDA', 'AAPL', 'MSFT']);
+  const [watchlist, setWatchlist] = useState(['NVDA', 'AAPL', 'MSFT', 'GOOGL']);
+
+  // Fetch from Supabase on mount if configured
+  useEffect(() => {
+    async function initSupabaseData() {
+      if (isSupabaseConfigured()) {
+        setIsSupabaseLive(true);
+        const [dbStocks, dbIndices, dbNews] = await Promise.all([
+          getStocksFromDb(),
+          getIndicesFromDb(),
+          getNewsFromDb()
+        ]);
+
+        if (dbStocks && dbStocks.length > 0) {
+          // Format fields from database if needed
+          setStocks(dbStocks);
+        }
+        if (dbIndices && dbIndices.length > 0) {
+          setIndices(dbIndices);
+        }
+        if (dbNews && dbNews.length > 0) {
+          setNewsFeed(dbNews);
+        }
+      }
+    }
+    initSupabaseData();
+  }, []);
 
   // User Personal Financial & Wealth Profile
   const [financialProfile, setFinancialProfile] = useState({
@@ -300,6 +378,126 @@ export const StockProvider = ({ children }) => {
       });
       return true;
     }
+
+    // Record trade transaction in Supabase asynchronously
+    if (isSupabaseConfigured()) {
+      recordTradeToDb({ symbol, type, shares, price }, currentUser?.email || 'default_user');
+    }
+
+    return true;
+  };
+
+  // User Demat Account Authentication Handlers
+  const loginUser = async ({ email, password }) => {
+    try {
+      let matchedUser = null;
+      if (isSupabaseConfigured()) {
+        const dbUser = await getUserAccountFromDb(email);
+        if (dbUser) {
+          matchedUser = {
+            email: dbUser.email,
+            fullName: dbUser.full_name,
+            dematAccountNo: dbUser.demat_account_no,
+            brokerName: dbUser.broker_name || 'Zerodha (CDSL)',
+            isAuthenticated: true
+          };
+        }
+      }
+
+      if (!matchedUser) {
+        // Look up registered accounts from local store
+        const accounts = getRegisteredAccounts();
+        const found = accounts.find(a => a.email.toLowerCase() === email.toLowerCase());
+        if (found) {
+          matchedUser = {
+            email: found.email,
+            fullName: found.fullName,
+            dematAccountNo: found.dematAccountNo,
+            brokerName: found.brokerName || 'Zerodha (CDSL)',
+            isAuthenticated: true
+          };
+        } else {
+          // Fallback demo user generated from email
+          matchedUser = {
+            email,
+            fullName: email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            dematAccountNo: 'DEMAT-' + Math.floor(10000000 + Math.random() * 90000000),
+            brokerName: 'Zerodha (CDSL)',
+            isAuthenticated: true
+          };
+        }
+      }
+
+      setCurrentUser(matchedUser);
+      setIsGuestMode(false);
+      sessionStorage.setItem('demat_active_session', JSON.stringify(matchedUser));
+      setActiveTab('dashboard');
+      return { success: true, user: matchedUser };
+    } catch (err) {
+      console.error('Login error:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const registerUser = async ({ email, fullName, dematAccountNo, brokerName, password }) => {
+    try {
+      const finalDemat = dematAccountNo?.trim() || ('DEMAT-' + Math.floor(10000000 + Math.random() * 90000000));
+      const finalBroker = brokerName?.trim() || 'Zerodha (CDSL)';
+      const finalName = fullName?.trim() || email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+      if (isSupabaseConfigured()) {
+        await registerUserAccountInDb({
+          email,
+          fullName: finalName,
+          dematAccountNo: finalDemat,
+          brokerName: finalBroker,
+          password
+        });
+      }
+
+      const userObj = {
+        email,
+        fullName: finalName,
+        dematAccountNo: finalDemat,
+        brokerName: finalBroker,
+        password: password || 'DemoPass@2026',
+        isAuthenticated: true
+      };
+
+      // Persist into registered accounts list so user can easily log back in later
+      const existing = getRegisteredAccounts();
+      const updated = [userObj, ...existing.filter(a => a.email.toLowerCase() !== email.toLowerCase())];
+      localStorage.setItem('registered_demat_accounts', JSON.stringify(updated));
+
+      setCurrentUser(userObj);
+      setIsGuestMode(false);
+      sessionStorage.setItem('demat_active_session', JSON.stringify(userObj));
+      setActiveTab('dashboard');
+      return { success: true, user: userObj };
+    } catch (err) {
+      console.error('Registration error:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const logoutUser = () => {
+    const guestUser = {
+      email: '',
+      fullName: 'Guest Investor',
+      dematAccountNo: 'Unlinked',
+      brokerName: 'None',
+      isAuthenticated: false
+    };
+    setCurrentUser(guestUser);
+    setIsGuestMode(false);
+    sessionStorage.removeItem('demat_active_session');
+    localStorage.removeItem('aura_demat_user');
+    setActiveTab('login');
+  };
+
+  const continueAsGuest = () => {
+    setIsGuestMode(true);
+    setActiveTab('dashboard');
   };
 
   // Live Price Ticker Simulation Effect
@@ -374,7 +572,15 @@ export const StockProvider = ({ children }) => {
       adoptPortfolioBasket,
       portfolio,
       executeTrade,
-      getPortfolioSummary
+      getPortfolioSummary,
+      isSupabaseLive,
+      currentUser,
+      isGuestMode,
+      continueAsGuest,
+      getRegisteredAccounts,
+      loginUser,
+      registerUser,
+      logoutUser
     }}>
       {children}
     </StockContext.Provider>

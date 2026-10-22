@@ -8,20 +8,29 @@ export default {
     extend: {
       colors: {
         dark: {
-          bg: '#0b0f19',
-          card: '#131b2e',
-          hover: '#1c2742',
-          border: '#1f2d4d',
-          text: '#f1f5f9',
-          muted: '#94a3b8'
+          bg: '#f8fafc',
+          card: '#ffffff',
+          hover: '#f1f5f9',
+          border: '#e2e8f0',
+          text: '#0f172a',
+          muted: '#64748b'
+        },
+        surface: {
+          bg: '#f8fafc',
+          card: '#ffffff',
+          hover: '#f1f5f9',
+          border: '#e2e8f0',
+          text: '#0f172a',
+          muted: '#64748b',
+          subtle: '#94a3b8'
         },
         brand: {
-          primary: '#3b82f6',
-          accent: '#06b6d4',
-          emerald: '#10b981',
-          rose: '#f43f5e',
-          amber: '#f59e0b',
-          purple: '#8b5cf6'
+          primary: '#2563eb',
+          accent: '#0284c7',
+          emerald: '#059669',
+          rose: '#e11d48',
+          amber: '#d97706',
+          purple: '#7c3aed'
         }
       },
       fontFamily: {
